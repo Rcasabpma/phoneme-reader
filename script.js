@@ -1,4 +1,4 @@
-function getPhonemesAndSyllables(word) {
+function getPhonemes(word) {
   const url = `https://api.datamuse.com/words?sp=${word}&md=r&max=1`;
 
   fetch(url)
@@ -17,8 +17,8 @@ function getPhonemesAndSyllables(word) {
 
       const phonemeString = pronTag.replace("pron:", "");
       const phonemes = phonemeString.split(" ");
-      const syllables = groupPhonemesIntoSyllables(phonemes);
 
+      const syllables = splitIntoSyllables(phonemes);
       displayAndSpeakSyllables(word, syllables);
     })
     .catch(() => {
@@ -26,59 +26,72 @@ function getPhonemesAndSyllables(word) {
     });
 }
 
-// Approximate syllable grouping by breaking on vowels (simplified)
-function groupPhonemesIntoSyllables(phonemes) {
-  const vowels = ["AA", "AE", "AH", "AO", "AW", "AY", "EH", "ER", "EY", "IH", "IY", "OW", "OY", "UH", "UW"];
+function showError(message) {
+  const output = document.getElementById("output");
+  output.innerHTML = `<p style="color:red;">${message}</p>`;
+}
+
+function splitIntoSyllables(phonemes) {
+  const vowels = ['AA', 'AE', 'AH', 'AO', 'AW', 'AY', 'EH', 'ER', 'EY', 'IH', 'IY', 'OW', 'OY', 'UH', 'UW'];
   const syllables = [];
   let current = [];
 
   phonemes.forEach(p => {
     current.push(p);
-    if (vowels.some(v => p.startsWith(v))) {
+    const pBase = p.replace(/[0-9]/g, '');
+    if (vowels.includes(pBase)) {
       syllables.push(current);
       current = [];
     }
   });
 
-  if (current.length > 0) syllables[syllables.length - 1].push(...current);
+  if (current.length > 0) {
+    syllables[syllables.length - 1] = syllables[syllables.length - 1].concat(current);
+  }
+
   return syllables;
 }
 
 function displayAndSpeakSyllables(word, syllables) {
   const output = document.getElementById("output");
 
-  // Show syllables separated by dots
-  output.innerHTML = syllables
-    .map(s => {
-    // Remove vowels and digits from phonemes
-    const filteredPhonemes = s
-      .filter(p => !p.match(/^[AEIOU]/))  // remove phonemes starting with vowels
-      .map(p => p.replace(/\d/g, ''));   // also remove digits
-    return `<span class="phoneme">${filteredPhonemes.join(" ")}</span>`;
-  })
-  .join(" · ");
+  const readableSyllables = syllables.map(s => phonemesToChunk(s));
 
-  // Speak the whole word out loud
+  output.innerHTML = readableSyllables
+    .map(chunk => `<span class="phoneme">${chunk}</span>`)
+    .join(" · ");
+
   speakWholeWord(word);
 
-  // Highlight each syllable one by one (every 800 milliseconds)
-  syllables.forEach((_, i) => {
-    setTimeout(() => {
-      highlightPhoneme(i);
-    }, i * 800);
+  readableSyllables.forEach((_, i) => {
+    setTimeout(() => highlightPhoneme(i), i * 800);
   });
 
-  // Remove all highlights after finishing
   setTimeout(() => {
     const spans = document.querySelectorAll(".phoneme");
     spans.forEach(span => span.classList.remove("active"));
-  }, syllables.length * 800);
+  }, readableSyllables.length * 800);
 }
 
+function phonemesToChunk(phonemeArray) {
+  const phonemeToLetters = {
+    TH: "Th", DH: "Th", SH: "Sh", CH: "Ch", 
+    B: "B", D: "D", F: "F", G: "G", HH: "H", JH: "J", 
+    K: "K", L: "L", M: "M", N: "N", NG: "Ng", P: "P", 
+    R: "R", S: "S", T: "T", V: "V", W: "W", Y: "Y", Z: "Z",
+    AA: "a", AE: "a", AH: "u", AO: "aw", AW: "ow", AY: "eye", 
+    EH: "e", ER: "er", EY: "ay", IH: "i", IY: "ee", 
+    OW: "o", OY: "oy", UH: "oo", UW: "oo"
+  };
+
+  return phonemeArray
+    .map(p => p.replace(/\d/g, ''))         // remove numbers
+    .map(p => phonemeToLetters[p] || "")    // convert phoneme to readable letters
+    .join("");
+}
 
 function speakWholeWord(word) {
   const utterance = new SpeechSynthesisUtterance(word);
-  utterance.lang = "en-US";
   speechSynthesis.speak(utterance);
 }
 
@@ -92,13 +105,8 @@ function highlightPhoneme(index) {
   });
 }
 
-function showError(message) {
-  const output = document.getElementById("output");
-  output.innerHTML = `<p style="color:red;">${message}</p>`;
-}
-
 function soundOutWord() {
   const word = document.getElementById("wordInput").value.toLowerCase().trim();
   if (word === "") return showError("Please enter a word.");
-  getPhonemesAndSyllables(word);
+  getPhonemes(word);
 }
