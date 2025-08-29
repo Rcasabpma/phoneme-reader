@@ -92,6 +92,8 @@ function phonemesToChunk(phonemeArray) {
 
 function speakWholeWord(word) {
   const utterance = new SpeechSynthesisUtterance(word);
+  const slow = document.getElementById("slowMode").checked;
+  utterance.rate = slow ? 0.6 : 1;
   speechSynthesis.speak(utterance);
 }
 
@@ -108,11 +110,20 @@ function highlightPhoneme(index) {
 function soundOutWord() {
   const word = document.getElementById("wordInput").value.toLowerCase().trim();
   if (word === "") return showError("Please enter a word.");
+
+  document.getElementById("output").innerHTML = ""; // Clear output
   getPhonemes(word);
 }
+
 // Press Enter to sound out the word
 document.getElementById("wordInput").addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     soundOutWord();
   }
 });
+
+// Focus input on page load
+window.onload = () => {
+  document.getElementById("wordInput").focus();
+};
+
