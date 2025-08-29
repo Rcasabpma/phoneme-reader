@@ -3,9 +3,8 @@ function getPhonemesForSentence(sentence) {
   const promises = words.map(word => getPhonemeData(word));
 
   Promise.all(promises).then(results => {
-    const combinedOutput = [];
-    const wordChunks = [];
     const errors = [];
+    const combinedOutput = [];
 
     results.forEach((data, index) => {
       if (data.error) {
@@ -15,7 +14,6 @@ function getPhonemesForSentence(sentence) {
 
       const syllables = splitIntoSyllables(data.phonemes);
       const readable = syllables.map(s => phonemesToChunk(s));
-      wordChunks.push(readable);
       combinedOutput.push({ word: words[index], syllables: readable });
     });
 
@@ -84,8 +82,8 @@ function phonemesToChunk(phonemeArray) {
   };
 
   return phonemeArray
-    .map(p => p.replace(/\d/g, ''))         // remove numbers
-    .map(p => phonemeToLetters[p] || "")    // convert phoneme to readable letters
+    .map(p => p.replace(/\d/g, ''))
+    .map(p => phonemeToLetters[p] || "")
     .join("");
 }
 
@@ -111,6 +109,61 @@ function displayAndSpeakSentence(sentenceChunks) {
     output.appendChild(wordDiv);
 
     if (wordIndex !== sentenceChunks.length - 1) {
-      const space = document.createTextNode(" ");
+      output.appendChild(document.createTextNode(" "));
+    }
+  });
 
+  speakSentence(sentenceChunks, spanGroups);
+}
 
+function speakSentence(sentenceChunks, spanGroups) {
+  const slow = document.getElementById("slowMode").checked;
+  let wordIndex = 0;
+
+  function speakNextWord() {
+    if (wordIndex >= sentenceChunks.length) return;
+
+    const word = sentenceChunks[wordIndex].word;
+    const spans = spanGroups[wordIndex];
+
+    spans.forEach(span => span.classList.add("active"));
+
+    const utterance = new SpeechSynthesisUtterance(word);
+    utterance.rate = slow ? 0.6 : 1;
+    utterance.onend = () => {
+      spans.forEach(span => span.classList.remove("active"));
+      wordIndex++;
+      speakNextWord();
+    };
+
+    speechSynthesis.speak(utterance);
+  }
+
+  speakNextWord();
+}
+
+function showError(message) {
+  const output = document.getElementById("output");
+  output.innerHTML = `<p style="color:red;">${message}</p>`;
+}
+
+function soundOutWord() {
+  const input = document.getElementById("wordInput").value;
+  if (input.trim() === "") {
+    showError("Please enter a word or sentence.");
+    return;
+  }
+
+  document.getElementById("output").innerHTML = "";
+  getPhonemesForSentence(input);
+}
+
+document.getElementById("wordInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    soundOutWord();
+  }
+});
+
+window.onload = () => {
+  document.getElementById("wordInput").focus();
+};
