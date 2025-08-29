@@ -47,20 +47,28 @@ function groupPhonemesIntoSyllables(phonemes) {
 function displayAndSpeakSyllables(word, syllables) {
   const output = document.getElementById("output");
 
+  // Show syllables separated by dots
   output.innerHTML = syllables
     .map(s => `<span class="phoneme">${s.join(" ")}</span>`)
     .join(" · ");
 
-  // Use proper pronunciation (not per syllable)
+  // Speak the whole word out loud
   speakWholeWord(word);
 
-  // Highlight as spoken (optional)
+  // Highlight each syllable one by one (every 800 milliseconds)
   syllables.forEach((_, i) => {
     setTimeout(() => {
       highlightPhoneme(i);
-    }, i * 1000);
+    }, i * 800);
   });
+
+  // Remove all highlights after finishing
+  setTimeout(() => {
+    const spans = document.querySelectorAll(".phoneme");
+    spans.forEach(span => span.classList.remove("active"));
+  }, syllables.length * 800);
 }
+
 
 function speakWholeWord(word) {
   const utterance = new SpeechSynthesisUtterance(word);
