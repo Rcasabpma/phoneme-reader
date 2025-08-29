@@ -110,3 +110,9 @@ function soundOutWord() {
   if (word === "") return showError("Please enter a word.");
   getPhonemes(word);
 }
+// Press Enter to sound out the word
+document.getElementById("wordInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    soundOutWord();
+  }
+});
