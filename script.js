@@ -50,11 +50,13 @@ function displayAndSpeakSyllables(word, syllables) {
   // Show syllables separated by dots
   output.innerHTML = syllables
     .map(s => {
-      // Remove digits from each phoneme, then join
-      const cleanPhonemes = s.map(p => p.replace(/\d/g, ''));
-      return `<span class="phoneme">${cleanPhonemes.join(" ")}</span>`;
-    })
-    .join(" · ");
+    // Remove vowels and digits from phonemes
+    const filteredPhonemes = s
+      .filter(p => !p.match(/^[AEIOU]/))  // remove phonemes starting with vowels
+      .map(p => p.replace(/\d/g, ''));   // also remove digits
+    return `<span class="phoneme">${filteredPhonemes.join(" ")}</span>`;
+  })
+  .join(" · ");
 
   // Speak the whole word out loud
   speakWholeWord(word);
