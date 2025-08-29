@@ -1,34 +1,52 @@
-function getPhonemes(word) {
+function getPhonemesForSentence(sentence) {
+  const words = sentence.toLowerCase().trim().split(/\s+/);
+  const promises = words.map(word => getPhonemeData(word));
+
+  Promise.all(promises).then(results => {
+    const combinedOutput = [];
+    const wordChunks = [];
+    const errors = [];
+
+    results.forEach((data, index) => {
+      if (data.error) {
+        errors.push(`"${words[index]}" not found`);
+        return;
+      }
+
+      const syllables = splitIntoSyllables(data.phonemes);
+      const readable = syllables.map(s => phonemesToChunk(s));
+      wordChunks.push(readable);
+      combinedOutput.push({ word: words[index], syllables: readable });
+    });
+
+    if (errors.length > 0) {
+      showError(errors.join(", "));
+      return;
+    }
+
+    displayAndSpeakSentence(combinedOutput);
+  }).catch(() => {
+    showError("Something went wrong fetching the words.");
+  });
+}
+
+function getPhonemeData(word) {
   const url = `https://api.datamuse.com/words?sp=${word}&md=r&max=1`;
 
-  fetch(url)
+  return fetch(url)
     .then(response => response.json())
     .then(data => {
       if (data.length === 0 || !data[0].tags) {
-        showError("Sorry, this word wasn't found.");
-        return;
+        return { error: true };
       }
 
       const pronTag = data[0].tags.find(tag => tag.startsWith("pron:"));
-      if (!pronTag) {
-        showError("Phoneme data not available.");
-        return;
-      }
+      if (!pronTag) return { error: true };
 
       const phonemeString = pronTag.replace("pron:", "");
       const phonemes = phonemeString.split(" ");
-
-      const syllables = splitIntoSyllables(phonemes);
-      displayAndSpeakSyllables(word, syllables);
-    })
-    .catch(() => {
-      showError("Error contacting phoneme server.");
+      return { phonemes };
     });
-}
-
-function showError(message) {
-  const output = document.getElementById("output");
-  output.innerHTML = `<p style="color:red;">${message}</p>`;
 }
 
 function splitIntoSyllables(phonemes) {
@@ -45,42 +63,23 @@ function splitIntoSyllables(phonemes) {
     }
   });
 
-  if (current.length > 0) {
+  if (current.length > 0 && syllables.length > 0) {
     syllables[syllables.length - 1] = syllables[syllables.length - 1].concat(current);
+  } else if (current.length > 0) {
+    syllables.push(current);
   }
 
   return syllables;
 }
 
-function displayAndSpeakSyllables(word, syllables) {
-  const output = document.getElementById("output");
-
-  const readableSyllables = syllables.map(s => phonemesToChunk(s));
-
-  output.innerHTML = readableSyllables
-    .map(chunk => `<span class="phoneme">${chunk}</span>`)
-    .join(" · ");
-
-  speakWholeWord(word);
-
-  readableSyllables.forEach((_, i) => {
-    setTimeout(() => highlightPhoneme(i), i * 800);
-  });
-
-  setTimeout(() => {
-    const spans = document.querySelectorAll(".phoneme");
-    spans.forEach(span => span.classList.remove("active"));
-  }, readableSyllables.length * 800);
-}
-
 function phonemesToChunk(phonemeArray) {
   const phonemeToLetters = {
-    TH: "Th", DH: "Th", SH: "Sh", CH: "Ch", 
-    B: "B", D: "D", F: "F", G: "G", HH: "H", JH: "J", 
-    K: "K", L: "L", M: "M", N: "N", NG: "Ng", P: "P", 
+    TH: "Th", DH: "Th", SH: "Sh", CH: "Ch",
+    B: "B", D: "D", F: "F", G: "G", HH: "H", JH: "J",
+    K: "K", L: "L", M: "M", N: "N", NG: "Ng", P: "P",
     R: "R", S: "S", T: "T", V: "V", W: "W", Y: "Y", Z: "Z",
-    AA: "a", AE: "a", AH: "u", AO: "aw", AW: "ow", AY: "eye", 
-    EH: "e", ER: "er", EY: "ay", IH: "i", IY: "ee", 
+    AA: "a", AE: "a", AH: "u", AO: "aw", AW: "ow", AY: "eye",
+    EH: "e", ER: "er", EY: "ay", IH: "i", IY: "ee",
     OW: "o", OY: "oy", UH: "oo", UW: "oo"
   };
 
@@ -90,40 +89,28 @@ function phonemesToChunk(phonemeArray) {
     .join("");
 }
 
-function speakWholeWord(word) {
-  const utterance = new SpeechSynthesisUtterance(word);
-  const slow = document.getElementById("slowMode").checked;
-  utterance.rate = slow ? 0.6 : 1;
-  speechSynthesis.speak(utterance);
-}
+function displayAndSpeakSentence(sentenceChunks) {
+  const output = document.getElementById("output");
+  output.innerHTML = "";
 
-function highlightPhoneme(index) {
-  const spans = document.querySelectorAll(".phoneme");
-  spans.forEach((span, i) => {
-    span.classList.remove("active");
-    if (i === index) {
-      span.classList.add("active");
-    }
-  });
-}
+  const spanGroups = [];
 
-function soundOutWord() {
-  const word = document.getElementById("wordInput").value.toLowerCase().trim();
-  if (word === "") return showError("Please enter a word.");
+  sentenceChunks.forEach((wordObj, wordIndex) => {
+    const wordDiv = document.createElement("span");
+    wordDiv.className = "word";
 
-  document.getElementById("output").innerHTML = ""; // Clear output
-  getPhonemes(word);
-}
+    const syllableSpans = wordObj.syllables.map((chunk, i) => {
+      const span = document.createElement("span");
+      span.className = "phoneme";
+      span.textContent = chunk;
+      wordDiv.appendChild(span);
+      return span;
+    });
 
-// Press Enter to sound out the word
-document.getElementById("wordInput").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    soundOutWord();
-  }
-});
+    spanGroups.push(syllableSpans);
+    output.appendChild(wordDiv);
 
-// Focus input on page load
-window.onload = () => {
-  document.getElementById("wordInput").focus();
-};
+    if (wordIndex !== sentenceChunks.length - 1) {
+      const space = document.createTextNode(" ");
+
 
