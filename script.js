@@ -49,7 +49,11 @@ function displayAndSpeakSyllables(word, syllables) {
 
   // Show syllables separated by dots
   output.innerHTML = syllables
-    .map(s => `<span class="phoneme">${s.join(" ")}</span>`)
+    .map(s => {
+      // Remove digits from each phoneme, then join
+      const cleanPhonemes = s.map(p => p.replace(/\d/g, ''));
+      return `<span class="phoneme">${cleanPhonemes.join(" ")}</span>`;
+    })
     .join(" · ");
 
   // Speak the whole word out loud
