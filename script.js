@@ -1,17 +1,49 @@
-// Simple dictionary of phonemes for a few example words
-const phonemeDict = {
-  "cat": ["k", "æ", "t"],
-  "dog": ["d", "ɔ", "g"],
-  "read": ["r", "iː", "d"],
-  "hello": ["h", "ə", "l", "oʊ"],
-  "apple": ["æ", "p", "əl"]
-};
+function getPhonemes(word) {
+  const url = `https://api.datamuse.com/words?sp=${word}&md=r&max=1`;
 
-function speakPhoneme(phoneme, delay) {
-  setTimeout(() => {
-    const utterance = new SpeechSynthesisUtterance(phoneme);
-    speechSynthesis.speak(utterance);
-  }, delay);
+  fetch(url)
+    .then(response => response.json())
+    .then(data => {
+      if (data.length === 0 || !data[0].tags) {
+        showError("Sorry, this word wasn't found.");
+        return;
+      }
+
+      const pronTag = data[0].tags.find(tag => tag.startsWith("pron:"));
+      if (!pronTag) {
+        showError("Phoneme data not available.");
+        return;
+      }
+
+      const phonemeString = pronTag.replace("pron:", "");
+      const phonemes = phonemeString.split(" ");
+      displayAndSpeakPhonemes(phonemes);
+    })
+    .catch(() => {
+      showError("Error contacting phoneme server.");
+    });
+}
+
+function showError(message) {
+  const output = document.getElementById("output");
+  output.innerHTML = `<p style="color:red;">${message}</p>`;
+}
+
+function displayAndSpeakPhonemes(phonemes) {
+  const output = document.getElementById("output");
+  output.innerHTML = phonemes.map(p => `<span class="phoneme">${p}</span>`).join("");
+
+  phonemes.forEach((p, i) => {
+    setTimeout(() => {
+      speakPhoneme(p);
+      highlightPhoneme(i);
+    }, i * 1000);
+  });
+}
+
+function speakPhoneme(phoneme) {
+  const utterance = new SpeechSynthesisUtterance(phoneme);
+  speechSynthesis.speak(utterance);
 }
 
 function highlightPhoneme(index) {
@@ -25,19 +57,7 @@ function highlightPhoneme(index) {
 }
 
 function soundOutWord() {
-  const word = document.getElementById("wordInput").value.toLowerCase();
-  const output = document.getElementById("output");
-
-  if (!phonemeDict[word]) {
-    output.innerHTML = `<p style="color:red;">Sorry, this word isn't in the demo dictionary yet.</p>`;
-    return;
-  }
-
-  const phonemes = phonemeDict[word];
-  output.innerHTML = phonemes.map(p => `<span class="phoneme">${p}</span>`).join("");
-
-  phonemes.forEach((p, i) => {
-    speakPhoneme(p, i * 1000); // delay each by 1s
-    setTimeout(() => highlightPhoneme(i), i * 1000);
-  });
+  const word = document.getElementById("wordInput").value.toLowerCase().trim();
+  if (word === "") return showError("Please enter a word.");
+  getPhonemes(word);
 }
